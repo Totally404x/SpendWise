@@ -6,6 +6,7 @@ import com.ankit.spendwise.config.DatabaseConfig;
 
 import java.util.List;
 import java.util.ArrayList;
+import java.time.LocalDate;
 
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -203,6 +204,54 @@ public class ExpenseRepository {
         return expenses;
     }
 
+    public List<Expense> sortExpensesByCategory() {
+        String query="SELECT * FROM expenses ORDER BY category";
+        List<Expense> expenses= new ArrayList<>();
+        try (
+                Connection connection= DatabaseConfig.getConnection();
+                PreparedStatement preparedStatement=connection.prepareStatement(query);
+                ResultSet resultSet= preparedStatement.executeQuery();
+        ) {
+            while(resultSet.next()) {
+                Expense expense = new Expense();
+                expense.setId(resultSet.getLong("id"));
+                expense.setAmount(resultSet.getDouble("amount"));
+                expense.setNote(resultSet.getString("note"));
+                expense.setDate((resultSet.getDate("expensedate").toLocalDate()));
+                expense.setCategory(resultSet.getString("category"));
+                expenses.add(expense);
+            }
+        }
+        catch (SQLException E) {
+            E.printStackTrace();
+        }
+        return expenses;
+    }
+
+    public List<Expense> sortExpensesByDate() {
+        String query="SELECT * FROM expenses ORDER BY expensedate ASC";
+        List<Expense> expenses= new ArrayList<>();
+        try (
+                Connection connection= DatabaseConfig.getConnection();
+                PreparedStatement preparedStatement=connection.prepareStatement(query);
+                ResultSet resultSet= preparedStatement.executeQuery();
+        ) {
+            while(resultSet.next()) {
+                Expense expense = new Expense();
+                expense.setId(resultSet.getLong("id"));
+                expense.setAmount(resultSet.getDouble("amount"));
+                expense.setNote(resultSet.getString("note"));
+                expense.setDate((resultSet.getDate("expensedate").toLocalDate()));
+                expense.setCategory(resultSet.getString("category"));
+                expenses.add(expense);
+            }
+        }
+        catch (SQLException E) {
+            E.printStackTrace();
+        }
+        return expenses;
+    }
+
     public DashboardSummary getDashboard() {
         String query1 = "SELECT SUM(amount) AS totalSpend, MAX(amount) AS highestSpend, COUNT(*) AS numberOfTransactions FROM expenses ";
         DashboardSummary summary = new DashboardSummary();
@@ -287,6 +336,85 @@ public class ExpenseRepository {
             E.printStackTrace();
         }
         return summaries;
+    }
+
+    public List<CategorySummary> getTopSpendingCategories() {
+        String query="SELECT category, SUM(amount) as totalAmount FROM expenses GROUP BY category ORDER BY totalSpent DESC";
+        List<CategorySummary> summaries=new ArrayList<>();
+        try(
+                Connection connection= DatabaseConfig.getConnection();
+                PreparedStatement preparedStatement= connection.prepareStatement(query);
+        ) {
+            ResultSet resultSet=preparedStatement.executeQuery();
+            while(resultSet.next()) {
+                CategorySummary summary = new CategorySummary();
+                summary.setCategory(resultSet.getString("category"));
+                summary.setTotalAmount(resultSet.getDouble("totalAmount"));
+                summaries.add(summary);
+            }
+        } catch(SQLException E) {
+            E.printStackTrace();
+        }
+        return summaries;
+    }
+
+    public DashboardSummary getYearlyDashboard(Integer year) {
+        String query1 = "SELECT SUM(amount) AS totalSpend, MAX(amount) AS highestSpend, COUNT(*) AS numberOfTransactions FROM expenses WHERE YEAR(expensedate)=?";
+        DashboardSummary summary = new DashboardSummary();
+        try(
+                Connection connection= DatabaseConfig.getConnection();
+                PreparedStatement preparedStatement= connection.prepareStatement(query1);
+        ) {
+            preparedStatement.setInt(1, year);
+            ResultSet resultSet=preparedStatement.executeQuery();
+            if(resultSet.next()) {
+                summary.setTotalSpend(resultSet.getDouble("totalSpend"));
+                summary.setHighestSpend(resultSet.getDouble("highestSpend"));
+                summary.setNumberOfTransactions(resultSet.getInt("numberOfTransactions"));
+            }
+        } catch(SQLException E) {
+            E.printStackTrace();
+        }
+        String query2 = "SELECT category FROM expenses WHERE YEAR(expensedate)=? GROUP BY category ORDER BY SUM(amount) DESC LIMIT 1";
+        try(
+                Connection connection= DatabaseConfig.getConnection();
+                PreparedStatement preparedStatement= connection.prepareStatement(query2);
+        ) {
+            preparedStatement.setInt(1, year);
+            ResultSet resultSet=preparedStatement.executeQuery();
+            if(resultSet.next()) {
+                summary.setHighestCategory(resultSet.getString("category"));
+            }
+        } catch(SQLException E) {
+            E.printStackTrace();
+        }
+        return summary;
+    }
+
+        public List<Expense> getExpenseByDateRange(LocalDate from, LocalDate to) {
+        String query="SELECT * FROM expenses WHERE expensedate BETWEEN ? and ?";
+        List<Expense> expenses= new ArrayList<>();
+        try (
+                Connection connection= DatabaseConfig.getConnection();
+                PreparedStatement preparedStatement=connection.prepareStatement(query);
+        ) {
+            preparedStatement.setDate(1,java.sql.Date.valueOf(from));
+            preparedStatement.setDate(2,java.sql.Date.valueOf(to));
+            ResultSet resultSet= preparedStatement.executeQuery();
+            while(resultSet.next()) {
+                Expense expense = new Expense();
+                expense.setId(resultSet.getLong("id"));
+                expense.setAmount(resultSet.getDouble("amount"));
+                expense.setNote(resultSet.getString("note"));
+                expense.setDate((resultSet.getDate("expensedate").toLocalDate()));
+                expense.setCategory(resultSet.getString("category"));
+                expenses.add(expense);
+            }
+        }
+        catch (SQLException E) {
+            E.printStackTrace();
+        }
+        return expenses;
     }
 
     public boolean updateExpense(Expense expense) {
